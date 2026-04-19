@@ -33,6 +33,7 @@ spec:
         - --zap-encoder=console
         - --auto-download=true
         - --tf-download-base-url=https://releases.hashicorp.com/terraform
+        - --tofu-download-base-url=https://github.com/opentofu/opentofu/releases/download
         ports:
         - name: cache
           containerPort: 8082

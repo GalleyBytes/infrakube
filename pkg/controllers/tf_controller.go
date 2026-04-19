@@ -342,6 +342,13 @@ type TaskOptions struct {
 
 	// When a plugin is defined to run as a sidecar, this field will be filled in and attached to current task
 	sidecarPlugins []corev1.Pod
+
+	// crdResource is the plural CRD resource name used in RBAC rules (e.g. "terraforms", "tofus")
+	crdResource string
+	// versionEnvVar is the env var name for the tool version (e.g. "INFRAKUBE_TF_VERSION", "INFRAKUBE_TOFU_VERSION")
+	versionEnvVar string
+	// downloadURLEnvVar is the env var name for the download URL base (e.g. "INFRAKUBE_TF_DOWNLOAD_URL_BASE")
+	downloadURLEnvVar string
 }
 
 func newTaskOptions(tf *tfv1beta1.Terraform, task tfv1beta1.TaskName, generation int64, globalEnvFrom []corev1.EnvFromSource, affinity *corev1.Affinity, nodeSelector map[string]string, tolerations []corev1.Toleration, requireApprovalImage string, cacheURL string, autoDownload bool, tfDownloadBaseURL string, taskImage string) TaskOptions {
@@ -562,6 +569,9 @@ func newTaskOptions(tf *tfv1beta1.Terraform, task tfv1beta1.TaskName, generation
 		volumes:                             volumes,
 		volumeMounts:                        volumeMounts,
 		sidecarPlugins:                      nil,
+		crdResource:                         "terraforms",
+		versionEnvVar:                       "INFRAKUBE_TF_VERSION",
+		downloadURLEnvVar:                   "INFRAKUBE_TF_DOWNLOAD_URL_BASE",
 	}
 }
 
@@ -2415,7 +2425,7 @@ func (r TaskOptions) generateRole() *rbacv1.Role {
 		{
 			Verbs:         []string{"get"},
 			APIGroups:     []string{"infrakube.galleybytes.com"},
-			Resources:     []string{"terraforms"},
+			Resources:     []string{r.crdResource},
 			ResourceNames: []string{r.resourceName},
 		},
 	}
@@ -2623,7 +2633,7 @@ func (r TaskOptions) generatePod() (*corev1.Pod, error) {
 			Value: generationPath + "/main",
 		},
 		{
-			Name:  "INFRAKUBE_TF_VERSION",
+			Name:  r.versionEnvVar,
 			Value: r.tfVersion,
 		},
 		{
@@ -2635,7 +2645,7 @@ func (r TaskOptions) generatePod() (*corev1.Pod, error) {
 			Value: strconv.FormatBool(r.autoDownload),
 		},
 		{
-			Name:  "INFRAKUBE_TF_DOWNLOAD_URL_BASE",
+			Name:  r.downloadURLEnvVar,
 			Value: r.tfDownloadBaseURL,
 		},
 		{

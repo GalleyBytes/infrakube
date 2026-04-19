@@ -1,0 +1,42 @@
+apiVersion: infrakube.galleybytes.com/v1
+kind: Tofu
+metadata:
+  name: simple-tofu-example
+  namespace: default
+spec:
+  tofuVersion: 1.9.0
+  tofuModule:
+    source: https://github.com/cloudposse/terraform-example-module.git?ref=main
+
+  images:
+    tofu:
+      image: ghcr.io/galleybytes/infrakube-task:latest
+      imagePullPolicy: IfNotPresent
+
+  backend: |-
+    terraform {
+      backend "kubernetes" {
+        secret_suffix    = "simple-tofu-example"
+        in_cluster_config  = true
+        namespace = "default"
+      }
+    }
+  ignoreDelete: false
+
+  setup:
+    resourceDownloads:
+    - address: https://github.com/cloudposse/terraform-example-module.git//examples/complete/fixtures.us-east-2.tfvars?ref=main
+      useAsVar: true
+
+  taskOptions:
+  - for:
+    - '*'
+    env:
+    - name: OPENTOFU_VAR_name
+      value: simple-tofu
+    - name: OPENTOFU_VAR_environment
+      value: example
+    annotations:
+      hello: infrakube
+
+  scmAuthMethods: []

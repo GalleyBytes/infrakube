@@ -50,6 +50,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Terraform":         schema_pkg_apis_infrakube_v1_Terraform(ref),
 		"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TerraformSpec":     schema_pkg_apis_infrakube_v1_TerraformSpec(ref),
 		"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TerraformStatus":   schema_pkg_apis_infrakube_v1_TerraformStatus(ref),
+		"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Tofu":              schema_pkg_apis_infrakube_v1_Tofu(ref),
+		"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TofuImages":        schema_pkg_apis_infrakube_v1_TofuImages(ref),
+		"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TofuSpec":          schema_pkg_apis_infrakube_v1_TofuSpec(ref),
+		"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TofuStatus":        schema_pkg_apis_infrakube_v1_TofuStatus(ref),
 		"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TokenSecretRef":    schema_pkg_apis_infrakube_v1_TokenSecretRef(ref),
 	}
 }
@@ -1216,6 +1220,382 @@ func schema_pkg_apis_infrakube_v1_TerraformStatus(ref common.ReferenceCallback) 
 					"retryEventReason": {
 						SchemaProps: spec.SchemaProps{
 							Description: "RetryEventReason copies the value of the resource label for 'kubernetes.io/change-cause'. When '.setup' is is the suffix of the value, the pipeline will retry from the setup task.\n\nExample of starting from setup:\n\n```yaml metadata:\n  labels:\n    kubernetes.io/change-cause: triggered-by-isa_aguilar-20231025T011600.setup\n```\n\nA default retry will start from the init task otherwise.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"retryTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+				Required: []string{"podNamePrefix", "phase", "lastCompletedGeneration", "stage"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Stage", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_pkg_apis_infrakube_v1_Tofu(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Tofu is the Schema for the tofus API",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TofuSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TofuStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TofuSpec", "github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TofuStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_infrakube_v1_TofuImages(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TofuImages describes the container images used by task classes",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"tofu": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tofu task type container image definition",
+							Ref:         ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.ImageConfig"),
+						},
+					},
+					"script": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Script task type container image definition",
+							Ref:         ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.ImageConfig"),
+						},
+					},
+					"setup": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Setup task type container image definition",
+							Ref:         ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.ImageConfig"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.ImageConfig"},
+	}
+}
+
+func schema_pkg_apis_infrakube_v1_TofuSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TofuSpec defines the desired state of Tofu",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"keepLatestPodsOnly": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KeepLatestPodsOnly when true will keep only the pods that match the current generation of the Tofu k8s-resource. This overrides the behavior of `keepCompletedPods`.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"keepCompletedPods": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KeepCompletedPods when true will keep completed pods. Default is false and completed pods are removed.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"outputsSecret": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OutputsSecret will create a secret with the outputs from the module. All outputs from the module will be written to the secret unless the user defines \"outputsToInclude\" or \"outputsToOmit\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"outputsToInclude": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OutputsToInclude is a whitelist of outputs to write when writing the outputs to kubernetes.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"outputsToOmit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OutputsToOmit is a blacklist of outputs to omit when writing the outputs to kubernetes.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"writeOutputsToStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WriteOutputsToStatus will add the outputs from the module to the status of the Tofu CustomResource.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"persistentVolumeSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PersistentVolumeSize define the size of the disk used to store run data. If not defined, a default of \"2Gi\" is used.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"storageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StorageClassName is the name of the volume that infrakube will use to store data. An empty value means that this volume does not belong to any StorageClassName and will use the clusters default StorageClassName",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serviceAccount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceAccount use a specific kubernetes ServiceAccount for running the create + destroy pods. If not specified we create a new ServiceAccount per resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"credentials": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Credentials is an array of credentials generally used for providers",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Credentials"),
+									},
+								},
+							},
+						},
+					},
+					"ignoreDelete": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IgnoreDelete will bypass the finalization process and remove the resource without running any delete jobs.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"sshTunnel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SSHTunnel can be defined for pulling from scm sources that cannot be accessed by the network the operator/runner runs in. An example is enterprise-Github servers running on a private network.",
+							Ref:         ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.ProxyOpts"),
+						},
+					},
+					"scmAuthMethods": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SCMAuthMethods define multiple SCMs that require tokens/keys",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.SCMAuthMethod"),
+									},
+								},
+							},
+						},
+					},
+					"images": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Images describes the container images used by task classes.",
+							Ref:         ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TofuImages"),
+						},
+					},
+					"setup": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Setup is configuration generally used once in the setup task",
+							Ref:         ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Setup"),
+						},
+					},
+					"tofuModule": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TofuModule is used to configure the source of the tofu module.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Module"),
+						},
+					},
+					"tofuVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TofuVersion is the version of tofu which is used to run the module. The tofu version is used as the tag of the tofu image regardless if images.tofu.image is defined with a tag. In that case, the tag is stripped and replaced with this value.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"backend": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Backend is used to define a mandatory backend. Value must be a valid backend block. For more information see https://opentofu.org/docs/language/settings/backends/configuration/",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"taskOptions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TaskOptions are a list of configuration options to be injected into task pods.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TaskOption"),
+									},
+								},
+							},
+						},
+					},
+					"plugins": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Plugins are tasks that run during a workflow but are not part of the main workflow. Plugins can be treated as just another task, however, plugins do not have completion or failure detection.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Plugin"),
+									},
+								},
+							},
+						},
+					},
+					"requireApproval": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RequireApproval will place a hold after completing a plan that prevents the workflow from continuing.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"tofuModule", "tofuVersion", "backend"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Credentials", "github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Module", "github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Plugin", "github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.ProxyOpts", "github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.SCMAuthMethod", "github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Setup", "github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TaskOption", "github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.TofuImages", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_pkg_apis_infrakube_v1_TofuStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TofuStatus defines the observed state of Tofu",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"podNamePrefix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PodNamePrefix is used to identify this installation of the resource. For very long resource names, like those greater than 220 characters, the prefix ensures resource uniqueness for runners and other resources used by the runner.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase is the current phase of the workflow",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastCompletedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastCompletedGeneration shows the generation of the last completed workflow. This is not relevant for remotely executed workflows.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"outputs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Outputs tofu outputs, when opt-in, will be added to this `status.outputs` field as key/value pairs",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"stage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Stage stores information about the current stage",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/galleybytes/infrakube/pkg/apis/infrakube/v1.Stage"),
+						},
+					},
+					"pluginsStarted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PluginsStarted is a list of plugins that have been executed by the controller. Will get refreshed each generation.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"retryEventReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RetryEventReason copies the value of the resource label for 'kubernetes.io/change-cause'. When '.setup' is is the suffix of the value, the pipeline will retry from the setup task.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

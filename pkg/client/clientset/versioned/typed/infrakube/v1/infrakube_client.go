@@ -29,6 +29,7 @@ import (
 type InfrakubeV1Interface interface {
 	RESTClient() rest.Interface
 	TerraformsGetter
+	TofusGetter
 }
 
 // InfrakubeV1Client is used to interact with features provided by the infrakube.galleybytes.com group.
@@ -38,6 +39,10 @@ type InfrakubeV1Client struct {
 
 func (c *InfrakubeV1Client) Terraforms(namespace string) TerraformInterface {
 	return newTerraforms(c, namespace)
+}
+
+func (c *InfrakubeV1Client) Tofus(namespace string) TofuInterface {
+	return newTofus(c, namespace)
 }
 
 // NewForConfig creates a new InfrakubeV1Client for the given config.

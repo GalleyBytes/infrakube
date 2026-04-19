@@ -1,7 +1,7 @@
 # infrakube-task.Containerfile
 #
-# Unified task image for infrakube. Combines setup + terraform task capabilities.
-# Terraform is downloaded on demand at runtime and then cached by the controller.
+# Unified task image for infrakube. Combines setup, terraform, and tofu task capabilities.
+# Terraform and OpenTofu are downloaded on demand at runtime and then cached by the controller.
 
 # ---------------------------------------------------------------------------
 # Stage: Kubernetes CLI
@@ -36,8 +36,10 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/workdir/target \
     cargo build --release --locked
 COPY scripts/entrypoint/src /workdir/src
+# Touch source files so the real entrypoint rebuilds after the warm-cache dummy main.rs build.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/workdir/target \
+    find /workdir/src -type f -exec touch {} + && \
     cargo build --release --locked && cp target/release/entrypoint /workdir/entrypoint
 
 # ---------------------------------------------------------------------------
@@ -54,12 +56,13 @@ COPY --from=entrypoint /workdir/entrypoint /usr/local/bin/entrypoint-bin
 
 # Copy extraction and wrapper scripts
 COPY scripts/extract-terraform.sh /opt/terraform/extract-terraform.sh
+COPY scripts/extract-tofu.sh /opt/tofu/extract-tofu.sh
 COPY scripts/entrypoint-wrapper.sh /usr/local/bin/entrypoint
-RUN chmod +x /opt/terraform/extract-terraform.sh /usr/local/bin/entrypoint
+RUN chmod +x /opt/terraform/extract-terraform.sh /opt/tofu/extract-tofu.sh /usr/local/bin/entrypoint
 
-# Prepare terraform extraction directory (writable by runtime user)
-RUN mkdir -p /opt/terraform/bin && chmod 777 /opt/terraform/bin
-ENV PATH="/opt/terraform/bin:${PATH}"
+# Prepare extraction directories (writable by runtime user)
+RUN mkdir -p /opt/terraform/bin /opt/tofu/bin && chmod 777 /opt/terraform/bin /opt/tofu/bin
+ENV PATH="/opt/tofu/bin:/opt/terraform/bin:${PATH}"
 
 # User setup
 ENV USER_UID=2000 \

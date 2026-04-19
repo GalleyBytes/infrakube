@@ -19,3 +19,5 @@ limitations under the License.
 package v1
 
 type TerraformExpansion interface{}
+
+type TofuExpansion interface{}

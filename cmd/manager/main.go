@@ -51,6 +51,7 @@ func StartInfrakube() {
 	var autoDownload bool
 	var tfDownloadBaseURL string
 	var taskImage string
+	var tofuDownloadBaseURL string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -65,8 +66,9 @@ func StartInfrakube() {
 	flag.StringVar(&requireApprovalImage, "require-approval-image", "ghcr.io/galleybytes/require-approval:0.2.0", "Plugin image for require-approval")
 	flag.StringVar(&cacheDir, "cache-dir", "/var/cache/infrakube/terraform", "Directory for the terraform binary cache")
 	flag.StringVar(&cacheURL, "cache-url", "http://infrakube-controller.infrakube-system.svc:8082", "URL of the cache server injected into task pods")
-	flag.BoolVar(&autoDownload, "auto-download", true, "Allow task pods to automatically download terraform binaries from the internet")
-	flag.StringVar(&tfDownloadBaseURL, "tf-download-base-url", "https://releases.hashicorp.com/terraform", "Base URL for terraform release downloads")
+	flag.BoolVar(&autoDownload, "auto-download", true, "Allow task pods to automatically download Terraform or OpenTofu binaries from the internet")
+	flag.StringVar(&tfDownloadBaseURL, "tf-download-base-url", "https://releases.hashicorp.com/terraform", "Base URL for Terraform release downloads")
+	flag.StringVar(&tofuDownloadBaseURL, "tofu-download-base-url", "https://github.com/opentofu/opentofu/releases/download", "Base URL for OpenTofu release downloads")
 	taskImageDefault := os.Getenv("INFRAKUBE_TASK_IMAGE")
 	if taskImageDefault == "" {
 		taskImageDefault = fmt.Sprintf("%s:%s", infrakubev1.TaskImageRepoDefault, infrakubev1.TaskImageTagDefault)
@@ -132,7 +134,33 @@ func StartInfrakube() {
 			TfDownloadBaseURL:          tfDownloadBaseURL,
 			TaskImage:                  taskImage,
 		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Cluster")
+			setupLog.Error(err, "unable to create controller", "controller", "Terraform")
+			os.Exit(1)
+		}
+
+		if err = (&controllers.ReconcileTofu{
+			Client:                     mgr.GetClient(),
+			Log:                        ctrl.Log.WithName("tofu_controller"),
+			Recorder:                   mgr.GetEventRecorderFor("tofu-controller"),
+			Scheme:                     mgr.GetScheme(),
+			MaxConcurrentReconciles:    maxConcurrentReconciles,
+			Cache:                      c,
+			GlobalEnvFromConfigmapData: globalEnvFromConfigmapData,
+			GlobalEnvFromSecretData:    globalEnvFromSecretData,
+			GlobalEnvSuffix:            "global-envs",
+			InheritAffinity:            inheritAffinty,
+			AffinityCacheKey:           "inherited_affinity",
+			InheritNodeSelector:        inheritNodeSelector,
+			NodeSelectorCacheKey:       "inherited_nodeselector",
+			InheritTolerations:         inheritTolerations,
+			TolerationsCacheKey:        "inherited_tolerations",
+			RequireApprovalImage:       requireApprovalImage,
+			CacheURL:                   cacheURL,
+			AutoDownload:               autoDownload,
+			TofuDownloadBaseURL:        tofuDownloadBaseURL,
+			TaskImage:                  taskImage,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Tofu")
 			os.Exit(1)
 		}
 	}

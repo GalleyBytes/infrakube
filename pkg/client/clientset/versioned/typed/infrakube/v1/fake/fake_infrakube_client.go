@@ -32,6 +32,10 @@ func (c *FakeInfrakubeV1) Terraforms(namespace string) v1.TerraformInterface {
 	return newFakeTerraforms(c, namespace)
 }
 
+func (c *FakeInfrakubeV1) Tofus(namespace string) v1.TofuInterface {
+	return newFakeTofus(c, namespace)
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeInfrakubeV1) RESTClient() rest.Interface {

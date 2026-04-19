@@ -8,9 +8,15 @@ ifeq ($(VERSION),)
 VERSION := v0.0.0
 endif
 IMG ?= ${DOCKER_REPO}/${IMAGE_NAME}:${VERSION}
+TASK_IMAGE ?= ${DOCKER_REPO}/infrakube-task:latest
+TASK_IMAGE_TARGETARCH ?= amd64
+TASK_IMAGE_CONTAINERFILE ?= task-container-build-tools/containerfiles/infrakube-task.Containerfile
+TASK_IMAGE_CONTEXT ?= task-container-build-tools
+TASK_IMAGE_BUILD_FLAGS ?=
 LOCAL_CACHE_URL ?= http://host.docker.internal:8082
 LOCAL_AUTO_DOWNLOAD ?= true
 TF_DOWNLOAD_BASE_URL ?= https://releases.hashicorp.com/terraform/
+TOFU_DOWNLOAD_BASE_URL ?= https://github.com/opentofu/opentofu/releases/download
 OS := $(shell uname -s | tr A-Z a-z)
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
@@ -21,6 +27,30 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 all: build
+
+help:
+	@printf "Available targets:\n"
+	@printf "  %-18s %s\n" "help" "Show this help output"
+	@printf "  %-18s %s\n" "fmt" "Run go fmt"
+	@printf "  %-18s %s\n" "vet" "Run go vet"
+	@printf "  %-18s %s\n" "test" "Run tests"
+	@printf "  %-18s %s\n" "crds" "Generate CRD manifests"
+	@printf "  %-18s %s\n" "generate" "Generate deepcopy code"
+	@printf "  %-18s %s\n" "openapi-gen" "Generate OpenAPI code"
+	@printf "  %-18s %s\n" "client-gen" "Generate typed client code"
+	@printf "  %-18s %s\n" "k8s-gen" "Run all Kubernetes code generators"
+	@printf "  %-18s %s\n" "build" "Run generation targets"
+	@printf "  %-18s %s\n" "run" "Run the controller locally against the current kubeconfig"
+	@printf "  %-18s %s\n" "install" "Apply generated CRDs to the cluster"
+	@printf "  %-18s %s\n" "install-webhook" "Apply webhook manifests"
+	@printf "  %-18s %s\n" "deploy" "Restart the deployed controller and follow logs"
+	@printf "  %-18s %s\n" "bundle" "Build the release bundle"
+	@printf "  %-18s %s\n" "docs" "Generate documentation"
+	@printf "  %-18s %s\n" "task-image-build" "Build the local infrakube-task image"
+	@printf "\nUseful task image vars:\n"
+	@printf "  %-24s %s\n" "TASK_IMAGE" "$(TASK_IMAGE)"
+	@printf "  %-24s %s\n" "TASK_IMAGE_TARGETARCH" "$(TASK_IMAGE_TARGETARCH)"
+	@printf "  %-24s %s\n" "TASK_IMAGE_BUILD_FLAGS" "$(TASK_IMAGE_BUILD_FLAGS)"
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:crdVersions=v1"
@@ -80,7 +110,7 @@ endif
 # rbac:roleName=manager-role
 # Generate manifests e.g. CRD, RBAC etc.
 crds: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:stdout > deploy/crds/infrakube.galleybytes.com_terraforms_crd.yaml
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:dir=deploy/crds
 
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
@@ -92,7 +122,7 @@ docs:
 	/bin/bash hack/docs.sh ${VERSION}
 
 client-gen: client-gen-bin
-	$(CLIENT_GEN) -n versioned --input-base ""  --input ${PKG}/pkg/apis/infrakube/v1 --output-pkg ${PKG}/pkg/client/clientset --output-dir pkg/client/clientset --go-header-file ./hack/boilerplate.go.txt --plural-exceptions Terraform:Terraforms
+	$(CLIENT_GEN) -n versioned --input-base ""  --input ${PKG}/pkg/apis/infrakube/v1 --output-pkg ${PKG}/pkg/client/clientset --output-dir pkg/client/clientset --go-header-file ./hack/boilerplate.go.txt --plural-exceptions Terraform:Terraforms,Tofu:Tofus
 
 k8s-gen: crds generate openapi-gen client-gen
 
@@ -109,7 +139,7 @@ vet:
 	go vet ./...
 
 install: crds
-	kubectl apply -f deploy/crds/infrakube.galleybytes.com_terraforms_crd.yaml
+	kubectl apply -f deploy/crds/
 
 bundle: crds
 	/bin/bash hack/bundler.sh ${VERSION}
@@ -124,6 +154,10 @@ test: openapi-gen fmt vet crds
 
 build: k8s-gen openapi-gen 
 
+task-image-build:
+	rm -rf task-container-build-tools/scripts/entrypoint/bin task-container-build-tools/scripts/entrypoint/target
+	docker build $(TASK_IMAGE_BUILD_FLAGS) --build-arg TARGETARCH=$(TASK_IMAGE_TARGETARCH) -t $(TASK_IMAGE) -f $(TASK_IMAGE_CONTAINERFILE) $(TASK_IMAGE_CONTEXT)
+
 
 
 
@@ -136,11 +170,12 @@ run: fmt vet
 	@echo "Using cache URL: $(LOCAL_CACHE_URL)"
 	@echo "Using auto-download: $(LOCAL_AUTO_DOWNLOAD)"
 	@echo "Using terraform download base URL: $(TF_DOWNLOAD_BASE_URL)"
-	go run main.go --max-concurrent-reconciles 10 --zap-log-level=5 --cache-dir=$(CACHE_DIR) --cache-url=$(LOCAL_CACHE_URL) --auto-download=$(LOCAL_AUTO_DOWNLOAD) --tf-download-base-url=$(TF_DOWNLOAD_BASE_URL)
+	@echo "Using tofu download base URL: $(TOFU_DOWNLOAD_BASE_URL)"
+	go run main.go --max-concurrent-reconciles 10 --zap-log-level=5 --cache-dir=$(CACHE_DIR) --cache-url=$(LOCAL_CACHE_URL) --auto-download=$(LOCAL_AUTO_DOWNLOAD) --tf-download-base-url=$(TF_DOWNLOAD_BASE_URL) --tofu-download-base-url=$(TOFU_DOWNLOAD_BASE_URL)
 
 install-webhook: fmt vet
 	find deploy -maxdepth 1 -type f -name 'webhook-*' -exec kubectl apply -f {} \;
 
 
 
-.PHONY: build push run install fmt vet deploy openapi-gen k8s-gen crds contoller-gen client-gen
+.PHONY: build push run install fmt vet deploy openapi-gen k8s-gen crds contoller-gen client-gen task-image-build
