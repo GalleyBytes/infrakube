@@ -53,7 +53,7 @@ kubectl apply -f deploy/pvc.yaml
 kubectl apply -f deploy/service.yaml
 kubectl apply -f deploy/deployment.yaml
 
-kubectl -n infrakube-system patch deployment infrakube --type=merge -p "$(printf '{"spec":{"template":{"spec":{"containers":[{"name":"infrakube","image":"%s","imagePullPolicy":"IfNotPresent","args":["--zap-log-level=debug","--zap-encoder=console","--auto-download=true","--tf-download-base-url=https://releases.hashicorp.com/terraform","--tofu-download-base-url=https://github.com/opentofu/opentofu/releases/download","--task-image=%s"]}]}}}}' "${CONTROLLER_IMAGE}" "${TASK_IMAGE}")"
+kubectl -n infrakube-system patch deployment infrakube --type=json -p "$(printf '[{"op":"replace","path":"/spec/template/spec/containers/0/image","value":"%s"},{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"},{"op":"replace","path":"/spec/template/spec/containers/0/args","value":["--zap-log-level=debug","--zap-encoder=console","--auto-download=true","--tf-download-base-url=https://releases.hashicorp.com/terraform","--tofu-download-base-url=https://github.com/opentofu/opentofu/releases/download","--task-image=%s"]}]' "${CONTROLLER_IMAGE}" "${TASK_IMAGE}")"
 kubectl -n infrakube-system rollout status deployment/infrakube --timeout=180s
 
 echo "Applying smoke fixtures..."
