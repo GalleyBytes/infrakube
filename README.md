@@ -34,7 +34,28 @@ spec:
     }
 ```
 
+## Testing
+
+Infrakube is tested at three levels: focused unit tests for risky logic, envtest-based controller tests for reconcile behavior, and a kind smoke test that runs real Terraform and Tofu workflows on Kubernetes.
+
+| Layer | Command | What it proves |
+| --- | --- | --- |
+| Unit | `make test-unit` | Custom JSON behavior, task option resolution, pod/job manifest generation, and other high-risk logic that is easy to regress. |
+| Controller integration | `make test-integration` | Terraform and Tofu reconcilers create the expected Kubernetes resources in envtest and wire status/stage state correctly. |
+| Kind smoke | `make test-e2e` | A real controller plus real task pods can complete tiny Terraform and Tofu workflows on Kubernetes without paid infrastructure. |
+
+The kind fixtures live under `test/e2e/manifests/` and use inline modules plus the Kubernetes backend so the default CI path stays free and secret-free.
+
+## CI
+
+Pull requests and pushes to `master` run `.github/workflows/ci.yaml`, which executes `make test`, checks for generated-file drift, then runs a kind-based Terraform and Tofu smoke test using locally built controller and task images.
+
+## Support expectations
+
+The automated suite is meant to prove controller behavior, task orchestration, and basic workflow execution. It does not try to cover every provider or cloud-specific module in the default CI path. If stronger proof is needed later, sandbox cloud smoke tests can live in separate nightly or manually triggered workflows.
+
+For local test workflow details, see [`docs/testing.md`](docs/testing.md).
+
 ## Community
 
 Join the channel: https://discord.gg/J5vRmT2PWg
-

@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tofu-e2e
+---
+apiVersion: infrakube.galleybytes.com/v1
+kind: Tofu
+metadata:
+  name: tofu-inline
+  namespace: tofu-e2e
+spec:
+  tofuVersion: "1.9.0"
+  writeOutputsToStatus: true
+  tofuModule:
+    inline: |-
+      output "hello" {
+        value = "tofu-smoke"
+      }
+  backend: |-
+    terraform {
+      backend "kubernetes" {
+        secret_suffix = "tofu-inline"
+        in_cluster_config = true
+        namespace = "tofu-e2e"
+      }
+    }

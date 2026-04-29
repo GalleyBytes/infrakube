@@ -25,6 +25,9 @@ GOBIN=$(shell go env GOPATH)/bin
 else
 GOBIN=$(shell go env GOBIN)
 endif
+SETUP_ENVTEST=$(GOBIN)/setup-envtest
+ENVTEST_K8S_VERSION ?= 1.33.x!
+ENVTEST_ASSETS_DIR ?= $(shell pwd)/testbin
 
 all: build
 
@@ -33,7 +36,10 @@ help:
 	@printf "  %-18s %s\n" "help" "Show this help output"
 	@printf "  %-18s %s\n" "fmt" "Run go fmt"
 	@printf "  %-18s %s\n" "vet" "Run go vet"
-	@printf "  %-18s %s\n" "test" "Run tests"
+	@printf "  %-18s %s\n" "test-unit" "Run unit tests"
+	@printf "  %-18s %s\n" "test-integration" "Run envtest integration tests"
+	@printf "  %-18s %s\n" "test-e2e" "Run kind smoke tests against the current kube context"
+	@printf "  %-18s %s\n" "test" "Run unit and integration tests"
 	@printf "  %-18s %s\n" "crds" "Generate CRD manifests"
 	@printf "  %-18s %s\n" "generate" "Generate deepcopy code"
 	@printf "  %-18s %s\n" "openapi-gen" "Generate OpenAPI code"
@@ -106,6 +112,17 @@ else
 CLIENT_GEN=$(shell which client-gen)
 endif
 
+setup-envtest:
+ifeq (, $(shell which setup-envtest))
+	@{ \
+	set -e ;\
+	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest ;\
+	}
+SETUP_ENVTEST=$(GOBIN)/setup-envtest
+else
+SETUP_ENVTEST=$(shell which setup-envtest)
+endif
+
 
 # rbac:roleName=manager-role
 # Generate manifests e.g. CRD, RBAC etc.
@@ -146,11 +163,17 @@ bundle: crds
 
 
 # Run tests
-ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test: openapi-gen fmt vet crds
+test-unit: openapi-gen fmt vet crds
+	go test ./... -coverprofile cover.out
+
+test-integration: openapi-gen fmt vet crds setup-envtest
 	mkdir -p ${ENVTEST_ASSETS_DIR}
-	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$$( $(SETUP_ENVTEST) use -p path --bin-dir $(ENVTEST_ASSETS_DIR) $(ENVTEST_K8S_VERSION) )" go test -tags=integration ./pkg/controllers/...
+
+test-e2e:
+	/bin/bash test/e2e/kind-smoke.sh
+
+test: test-unit test-integration
 
 build: k8s-gen openapi-gen 
 
@@ -178,4 +201,4 @@ install-webhook: fmt vet
 
 
 
-.PHONY: build push run install fmt vet deploy openapi-gen k8s-gen crds contoller-gen client-gen task-image-build
+.PHONY: build push run install fmt vet deploy openapi-gen k8s-gen crds contoller-gen client-gen task-image-build setup-envtest test-unit test-integration test-e2e test

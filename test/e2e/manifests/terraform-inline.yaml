@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tf-e2e
+---
+apiVersion: infrakube.galleybytes.com/v1
+kind: Terraform
+metadata:
+  name: terraform-inline
+  namespace: tf-e2e
+spec:
+  terraformVersion: "1.5.7"
+  writeOutputsToStatus: true
+  terraformModule:
+    inline: |-
+      output "hello" {
+        value = "terraform-smoke"
+      }
+  backend: |-
+    terraform {
+      backend "kubernetes" {
+        secret_suffix = "terraform-inline"
+        in_cluster_config = true
+        namespace = "tf-e2e"
+      }
+    }
