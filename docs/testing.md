@@ -46,12 +46,20 @@ Those fixtures use:
 
 ## CI behavior
 
-`.github/workflows/ci.yaml` runs two jobs:
+Pull requests targeting `master` trigger three workflows:
 
-1. `unit-and-integration` runs `make test` and fails if generated artifacts drift.
-2. `kind-smoke` builds the controller image and task image locally, loads them into kind, installs Infrakube, and runs the Terraform and Tofu smoke fixtures.
+1. `Build Infrakube Container Image` publishes `ghcr.io/galleybytes/infrakube:0.0.0-<commit>` and reuses a cached content tag when the controller inputs are unchanged.
+2. `Build Task Container Image` publishes `ghcr.io/galleybytes/infrakube-task:0.0.0-<commit>`.
+3. `.github/workflows/ci.yaml` runs `make test`, waits for both build workflows to finish for the pull request head SHA, pulls those exact images from GHCR, loads them into kind, and runs the Terraform and Tofu smoke fixtures.
 
 This keeps the default CI path free, secret-free, and easy to inspect.
+
+Release image publishing is handled separately by the tag-driven workflows:
+
+- `infrakube-*` tags publish `latest`, the requested version tag, and an immutable `0.0.0-<commit>` tag for the controller image
+- `task-*` tags publish the requested version tag and an immutable `0.0.0-<commit>` tag for the task image
+
+Pushes to `master` do not rerun the validation suite or release builds.
 
 ## What is not covered by default
 

@@ -4,28 +4,32 @@ on:
   pull_request:
     branches:
     - master
-    paths:
-    - 'task-container-build-tools/**'
   push:
     tags:
     - 'task-*'
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   task-build:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Get Release Version
+    - name: Determine build tags
       run: |
-        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+        if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+          echo "TFTASK_TAG=0.0.0-${{ github.event.pull_request.head.sha }}" >> "$GITHUB_ENV"
+        else
           TAG=${GITHUB_REF#refs/tags/}
           VERSION=${TAG#task-}
-        else
-          VERSION="0.0.0-$(date +%Y%m%d%H%M%S)"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "SHA_TAG=0.0.0-${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "TFTASK_TAG=${VERSION}" >> "$GITHUB_ENV"
         fi
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
@@ -36,21 +40,25 @@ jobs:
     - name: Set up GitHub Actions cache runtime
       uses: crazy-max/ghaction-github-runtime@v3
 
+    - name: Log in to registry
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
     - name: Install uv
       uses: astral-sh/setup-uv@v5
 
-    - name: Log in to registry
-      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
-
-    - name: Build & Push
+    - name: Build and push task image
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        TFTASK_TAG: ${{ env.VERSION }}
+        TFTASK_TAG: ${{ env.TFTASK_TAG }}
         TFTASK_PUSH: "true"
         TFTASK_CACHE_FROM: type=gha,scope=infrakube-task
         TFTASK_CACHE_TO: type=gha,mode=max,scope=infrakube-task
       run: |
         cd task-container-build-tools
         uv run python build-tftask.py
+
+    - name: Publish immutable SHA tag
+      if: github.event_name == 'push'
+      run: docker buildx imagetools create --tag ghcr.io/galleybytes/infrakube-task:${SHA_TAG} ghcr.io/galleybytes/infrakube-task:${VERSION}
 
     

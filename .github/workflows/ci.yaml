@@ -2,12 +2,13 @@ name: CI
 
 on:
   pull_request:
-  push:
     branches:
     - master
 
 permissions:
+  actions: read
   contents: read
+  packages: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -39,14 +40,56 @@ jobs:
     - unit-and-integration
     env:
       KIND_CLUSTER_NAME: infrakube-ci
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      CONTROLLER_IMAGE: ghcr.io/galleybytes/infrakube:0.0.0-${{ github.event.pull_request.head.sha }}
+      TASK_IMAGE: ghcr.io/galleybytes/infrakube-task:0.0.0-${{ github.event.pull_request.head.sha }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: go.mod
+    - name: Wait for controller and task builds
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        wait_for_workflow() {
+          local workflow_file="$1"
+          local workflow_name="$2"
+          local status
+          for attempt in $(seq 1 60); do
+            status="$(
+              gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_file}/runs?event=pull_request&head_sha=${PR_HEAD_SHA}&per_page=1" --jq '.workflow_runs | if length == 0 then "missing" else .[0] | "\(.status):\(.conclusion // "")" end'
+            )"
+            echo "${workflow_name}: ${status}"
+            case "${status}" in
+              completed:success)
+                return 0
+                ;;
+              completed:*)
+                echo "${workflow_name} did not succeed" >&2
+                return 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for ${workflow_name}" >&2
+          return 1
+        }
+
+        wait_for_workflow infrakube-releaser.yaml "controller build"
+        wait_for_workflow task-releaser.yaml "task build"
+
+    - name: Log in to GitHub Container Registry
+      run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+    - name: Pull built images
+      run: |
+        for attempt in $(seq 1 30); do
+          if docker pull "${CONTROLLER_IMAGE}" && docker pull "${TASK_IMAGE}"; then
+            exit 0
+          fi
+          sleep 10
+        done
+        exit 1
 
     - name: Set up kubectl
       uses: azure/setup-kubectl@v4
@@ -56,19 +99,10 @@ jobs:
       with:
         cluster_name: ${{ env.KIND_CLUSTER_NAME }}
 
-    - name: Build controller image
-      run: docker build -t ghcr.io/galleybytes/infrakube:e2e -f build/Dockerfile .
-
-    - name: Build task image
-      run: make task-image-build TASK_IMAGE=ghcr.io/galleybytes/infrakube-task:e2e TASK_IMAGE_TARGETARCH=amd64
-
     - name: Load images into kind
       run: |
-        kind load docker-image --name "${KIND_CLUSTER_NAME}" ghcr.io/galleybytes/infrakube:e2e
-        kind load docker-image --name "${KIND_CLUSTER_NAME}" ghcr.io/galleybytes/infrakube-task:e2e
+        kind load docker-image --name "${KIND_CLUSTER_NAME}" "${CONTROLLER_IMAGE}"
+        kind load docker-image --name "${KIND_CLUSTER_NAME}" "${TASK_IMAGE}"
 
     - name: Run kind smoke test
-      env:
-        CONTROLLER_IMAGE: ghcr.io/galleybytes/infrakube:e2e
-        TASK_IMAGE: ghcr.io/galleybytes/infrakube-task:e2e
       run: /bin/bash test/e2e/kind-smoke.sh
